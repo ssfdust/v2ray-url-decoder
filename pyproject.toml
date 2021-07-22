@@ -11,6 +11,9 @@ speedtest-cli = "^2.1.2"
 psutil = "^5.7.0"
 invoke = "^1.4.1"
 
+[tool.poetry.scripts]
+v2urldeco = "v2decoder.main:main"
+
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.1"
 pdbpp = "^0.10.2"

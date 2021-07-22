@@ -23,9 +23,10 @@ class BaseDecoder:
 class ListDecoder(BaseDecoder):
     def iter_encode_config(self) -> Iterator[str]:
         for config_str in self.decode_str.splitlines():
-            _config_str = re.sub(r"vmess://", "", config_str)
-            _econded_config_str = _config_str + ((4 - len(_config_str) % 4) * "=")
-            yield _econded_config_str
+            if config_str.startswith("vmess://"):
+                _config_str = re.sub(r"vmess://", "", config_str)
+                _econded_config_str = _config_str + ((4 - len(_config_str) % 4) * "=")
+                yield _econded_config_str
 
 
 class ConfigDecoder(BaseDecoder):

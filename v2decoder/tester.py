@@ -5,11 +5,13 @@ from contextlib import contextmanager
 import subprocess
 import os
 import time
+from shutil import rmtree
 from operator import attrgetter
 import speedtest
 import psutil
 from typing import TYPE_CHECKING, Iterator, List
 from .config import Config
+import ping3
 
 
 def callback(completed, total, end=False, **kwargs) -> None:
@@ -106,15 +108,28 @@ class ConfigTester:
 
         return speed
 
+def pingtest_configlst(configs: List[Config]):
+    print("正在进行ping测试...")
+    for config in configs:
+        config.ping = ping3.ping(config.address, timeout=1) or -1
+
+    configs = list(filter(lambda x: x.ping > 0, configs))
+    configs.sort(key=attrgetter("ping"))
+    return configs[0:8]
+
 
 def speedtest_config_lst(configs: List[Config]):
+    configs = pingtest_configlst(configs)
     items_num = len(configs)
     for idx, config in enumerate(configs, 1):
         print(f"正在测试第{idx}个，共计{items_num}个")
         tester = ConfigTester(config)
         tester.start_test()
+    return configs
 
 def print_test_results(configs: List[Config]) -> None:
     result_lst = sorted(configs, key=attrgetter("tls", "speed"), reverse=True)
-    for i in result_lst:
+    for idx, i in enumerate(result_lst, 1):
         print(i.name, "tls" if i.tls else "", i.speed)
+        i.name = f"rank{idx}_{i.name}_{i.speed}"
+    return configs

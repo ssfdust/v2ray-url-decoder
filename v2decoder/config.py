@@ -12,8 +12,10 @@ with open("templates/test_config.json") as f:
 
 def _parse_parts(parts: Dict[str, Union[str, int]]) -> Tuple[Union[str, int], Dict]:
     name: str = str(parts["ps"])
+    address = parts["add"]
     return (
         name.strip(),
+        address.strip(),
         {
             "protocol": "vmess",
             "settings": {
@@ -43,8 +45,9 @@ class Config:
     tls: bool
 
     def __init__(self, defaults: Dict[str, Union[str, int]]):
-        self.name, self.parts = _parse_parts(defaults)
+        self.name, self.address, self.parts = _parse_parts(defaults)
         self.tls = defaults['tls'] == 'tls'
+        self.ping = -1
         self._get_config()
 
     def _get_config(self) -> None:
@@ -81,3 +84,7 @@ def dump_config_lst(configs: List[Config], is_test: bool = False):
             dump_json(config, "test_configs")
         else:
             dump_json(config)
+
+def dump_bench_lst(configs: List[Config]):
+    for config in configs:
+        dump_json(config, "bench_configs")

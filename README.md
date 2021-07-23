@@ -1,7 +1,9 @@
 v2ray-tester & v2ray-subscriber
 ==============================
 
-```
+```bash
 poetry install
-inv --list
+v2urldeco --help
+v2urldeco url # 下载configs
+v2urldeco -t url # 测试url
 ```

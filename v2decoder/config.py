@@ -5,9 +5,11 @@ from copy import deepcopy
 from typing import Dict, Tuple, Union, Any, List
 import json
 
-with open("templates/config.json") as f:
+rootpath = Path(__file__).parent.absolute()
+
+with open(rootpath / "templates/config.json") as f:
     DEFAULT_CONFIG = json.load(f)
-with open("templates/test_config.json") as f:
+with open(rootpath/ "templates/test_config.json") as f:
     TEST_CONFIG = json.load(f)
 
 def _parse_parts(parts: Dict[str, Union[str, int]]) -> Tuple[Union[str, int], Dict]:

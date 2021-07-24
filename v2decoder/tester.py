@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import subprocess
 import os
 import time
+import timeit
 from shutil import rmtree
 from operator import attrgetter
 import speedtest
@@ -12,6 +13,87 @@ import psutil
 from typing import TYPE_CHECKING, Iterator, List
 from .config import Config
 import ping3
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
+
+class TimeoutTester(speedtest.Speedtest):
+
+    def get_best_server(self, servers=None):
+        """Perform a speedtest.net "ping" to determine which speedtest.net
+        server has the lowest latency
+        """
+
+        if not servers:
+            if not self.closest:
+                servers = self.get_closest_servers()
+            servers = self.closest
+
+        if self._source_address:
+            source_address_tuple = (self._source_address, 0)
+        else:
+            source_address_tuple = None
+
+        user_agent = speedtest.build_user_agent()
+
+        results = {}
+        for server in servers:
+            cum = []
+            url = os.path.dirname(server['url'])
+            stamp = int(timeit.time.time() * 1000)
+            latency_url = '%s/latency.txt?x=%s' % (url, stamp)
+            for i in range(0, 3):
+                this_latency_url = '%s.%s' % (latency_url, i)
+                urlparts = urlparse(latency_url)
+                try:
+                    if urlparts[0] == 'https':
+                        h = speedtest.SpeedtestHTTPSConnection(
+                            urlparts[1],
+                            timeout=0.5,
+                            source_address=source_address_tuple
+                        )
+                    else:
+                        h = speedtest.SpeedtestHTTPConnection(
+                            urlparts[1],
+                            timeout=0.5,
+                            source_address=source_address_tuple
+                        )
+                    headers = {'User-Agent': user_agent}
+                    path = '%s?%s' % (urlparts[2], urlparts[4])
+                    start = timeit.default_timer()
+                    h.request("GET", path, headers=headers)
+                    r = h.getresponse()
+                    total = (timeit.default_timer() - start)
+                except speedtest.HTTP_ERRORS:
+                    e = speedtest.get_exception()
+                    cum.append(3600)
+                    continue
+
+                text = r.read(9)
+                if int(r.status) == 200 and text == 'test=test'.encode():
+                    cum.append(total)
+                else:
+                    cum.append(3600)
+                h.close()
+
+            avg = round((sum(cum) / 6) * 1000.0, 3)
+            results[avg] = server
+
+        try:
+            fastest = sorted(results.keys())[0]
+        except IndexError:
+            raise speedtest.SpeedtestBestServerFailure('Unable to connect to servers to '
+                                             'test latency.')
+        best = results[fastest]
+        best['latency'] = fastest
+
+        self.results.ping = fastest
+        self.results.server = best
+
+        self._best.update(best)
+        return best
 
 
 def callback(completed, total, end=False, **kwargs) -> None:
@@ -47,9 +129,10 @@ def check_process(process: subprocess.Popen) -> bool:
     return True
 
 
-def _get_download_speed(tester: speedtest.Speedtest) -> float:
+def _get_download_speed(tester: TimeoutTester) -> float:
     print('获取服务中...')
     tester.get_servers([])
+    tester.get_best_server()
     print('开始下载...')
     tester.download(threads=1, callback=callback)
     return tester.results.download / 1024 / 1024
@@ -59,7 +142,7 @@ def get_download_speed(config: Config) -> float:
     speed = 0.0
     try:
         print(f"开始测试 {config.name} 服务...")
-        tester = speedtest.Speedtest(timeout=3)
+        tester = TimeoutTester(timeout=3)
         speed = round(_get_download_speed(tester), 3)
     except speedtest.ConfigRetrievalError:
         print(f"测试 {config.name} 服务超时...")
@@ -115,7 +198,7 @@ def pingtest_configlst(configs: List[Config]):
 
     configs = list(filter(lambda x: x.ping > 0, configs))
     configs.sort(key=attrgetter("ping"))
-    return configs[0:8]
+    return configs[0:15]
 
 
 def speedtest_config_lst(configs: List[Config]):

@@ -9,16 +9,31 @@ rootpath = Path(__file__).parent.absolute()
 
 with open(rootpath / "templates/config.json") as f:
     DEFAULT_CONFIG = json.load(f)
-with open(rootpath/ "templates/test_config.json") as f:
+with open(rootpath / "templates/test_config.json") as f:
     TEST_CONFIG = json.load(f)
 
-def _parse_parts(parts: Dict[str, Union[str, int]]) -> Tuple[Union[str, int], Dict]:
+
+def _parse_parts(
+    parts: Dict[str, Union[str, int]]
+) -> Tuple[str, str, Dict]:
     name: str = str(parts["ps"])
     address = parts["add"]
-    return (
-        name.strip(),
-        address.strip(),
-        {
+    if "ss" in parts:
+        outbound = {
+            "protocol": "shadowsocks",
+            "settings": {
+                "servers": [
+                    {
+                        "address": parts["add"],
+                        "port": int(parts["port"]),
+                        "method": parts["method"],
+                        "password": parts["password"],
+                    }
+                ]
+            },
+        }
+    else:
+        outbound = {
             "protocol": "vmess",
             "settings": {
                 "vnext": [
@@ -26,7 +41,11 @@ def _parse_parts(parts: Dict[str, Union[str, int]]) -> Tuple[Union[str, int], Di
                         "address": parts["add"],
                         "port": int(parts["port"]),
                         "users": [
-                            {"id": parts["id"], "level": 1, "alterId": parts["aid"]}
+                            {
+                                "id": parts["id"],
+                                "level": 1,
+                                "alterId": parts["aid"],
+                            }
                         ],
                     }
                 ]
@@ -36,8 +55,8 @@ def _parse_parts(parts: Dict[str, Union[str, int]]) -> Tuple[Union[str, int], Di
                 "security": parts["tls"] if parts["tls"] else "none",
                 "wsSettings": {"path": parts["path"]},
             },
-        },
-    )
+        }
+    return (name.strip(), address.strip(), outbound)
 
 
 class Config:
@@ -48,7 +67,7 @@ class Config:
 
     def __init__(self, defaults: Dict[str, Union[str, int]]):
         self.name, self.address, self.parts = _parse_parts(defaults)
-        self.tls = defaults['tls'] == 'tls'
+        self.tls = "tls" in defaults and defaults["tls"] == "tls"
         self.ping = -1
         self._get_config()
 
@@ -86,6 +105,7 @@ def dump_config_lst(configs: List[Config], is_test: bool = False):
             dump_json(config, "test_configs")
         else:
             dump_json(config)
+
 
 def dump_bench_lst(configs: List[Config]):
     for config in configs:

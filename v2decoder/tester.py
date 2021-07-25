@@ -13,6 +13,7 @@ import psutil
 from typing import TYPE_CHECKING, Iterator, List
 from .config import Config
 import ping3
+
 try:
     from urlparse import urlparse
 except ImportError:
@@ -20,7 +21,6 @@ except ImportError:
 
 
 class TimeoutTester(speedtest.Speedtest):
-
     def get_best_server(self, servers=None):
         """Perform a speedtest.net "ping" to determine which speedtest.net
         server has the lowest latency
@@ -41,38 +41,36 @@ class TimeoutTester(speedtest.Speedtest):
         results = {}
         for server in servers:
             cum = []
-            url = os.path.dirname(server['url'])
+            url = os.path.dirname(server["url"])
             stamp = int(timeit.time.time() * 1000)
-            latency_url = '%s/latency.txt?x=%s' % (url, stamp)
+            latency_url = "%s/latency.txt?x=%s" % (url, stamp)
             for i in range(0, 3):
-                this_latency_url = '%s.%s' % (latency_url, i)
                 urlparts = urlparse(latency_url)
                 try:
-                    if urlparts[0] == 'https':
+                    if urlparts[0] == "https":
                         h = speedtest.SpeedtestHTTPSConnection(
                             urlparts[1],
                             timeout=0.5,
-                            source_address=source_address_tuple
+                            source_address=source_address_tuple,
                         )
                     else:
                         h = speedtest.SpeedtestHTTPConnection(
                             urlparts[1],
                             timeout=0.5,
-                            source_address=source_address_tuple
+                            source_address=source_address_tuple,
                         )
-                    headers = {'User-Agent': user_agent}
-                    path = '%s?%s' % (urlparts[2], urlparts[4])
+                    headers = {"User-Agent": user_agent}
+                    path = "%s?%s" % (urlparts[2], urlparts[4])
                     start = timeit.default_timer()
                     h.request("GET", path, headers=headers)
                     r = h.getresponse()
-                    total = (timeit.default_timer() - start)
+                    total = timeit.default_timer() - start
                 except speedtest.HTTP_ERRORS:
-                    e = speedtest.get_exception()
                     cum.append(3600)
                     continue
 
                 text = r.read(9)
-                if int(r.status) == 200 and text == 'test=test'.encode():
+                if int(r.status) == 200 and text == "test=test".encode():
                     cum.append(total)
                 else:
                     cum.append(3600)
@@ -84,10 +82,11 @@ class TimeoutTester(speedtest.Speedtest):
         try:
             fastest = sorted(results.keys())[0]
         except IndexError:
-            raise speedtest.SpeedtestBestServerFailure('Unable to connect to servers to '
-                                             'test latency.')
+            raise speedtest.SpeedtestBestServerFailure(
+                "Unable to connect to servers to " "test latency."
+            )
         best = results[fastest]
-        best['latency'] = fastest
+        best["latency"] = fastest
 
         self.results.ping = fastest
         self.results.server = best
@@ -104,9 +103,11 @@ def callback(completed, total, end=False, **kwargs) -> None:
 
 def _create_v2ray_subporcess(config_name: str) -> subprocess.Popen:
     print("启动v2ray进程...")
-    process = subprocess.Popen(["v2ray", "-config", f"test_configs/{config_name}.json"],
-                               stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(
+        ["v2ray", "-config", f"test_configs/{config_name}.json"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     time.sleep(1.3)
     return process
 
@@ -122,18 +123,18 @@ def create_v2ray_subporcess(config_name):
 def check_process(process: subprocess.Popen) -> bool:
     if process.poll():
         print("v2ray执行失败，尝试杀死所有v2ray进程")
-        for proc in psutil.process_iter(['name', 'username']):
-            if proc.name() == 'v2ray' and proc.username() != 'root':
+        for proc in psutil.process_iter(["name", "username"]):
+            if proc.name() == "v2ray" and proc.username() != "root":
                 proc.kill()
         return False
     return True
 
 
 def _get_download_speed(tester: TimeoutTester) -> float:
-    print('获取服务中...')
+    print("获取服务中...")
     tester.get_servers([])
     tester.get_best_server()
-    print('开始下载...')
+    print("开始下载...")
     tester.download(threads=1, callback=callback)
     return tester.results.download / 1024 / 1024
 
@@ -191,6 +192,7 @@ class ConfigTester:
 
         return speed
 
+
 def pingtest_configlst(configs: List[Config]):
     print("正在进行ping测试...")
     for config in configs:
@@ -210,9 +212,10 @@ def speedtest_config_lst(configs: List[Config]):
         tester.start_test()
     return configs
 
-def print_test_results(configs: List[Config]) -> None:
-    result_lst = sorted(configs, key=attrgetter("tls", "speed"), reverse=True)
+
+def print_test_results(configs: List[Config]) -> List[Config]:
+    result_lst = sorted(configs, key=attrgetter("speed"), reverse=True)
     for idx, i in enumerate(result_lst, 1):
         print(i.name, "tls" if i.tls else "", i.speed)
-        i.name = f"rank{idx}_{i.name}_{i.speed}"
+        i.name = f"rank{idx:02}_{i.name}_{i.speed}"
     return configs

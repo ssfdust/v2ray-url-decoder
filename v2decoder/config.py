@@ -20,6 +20,7 @@ def _parse_parts(
     address = parts["add"]
     if "ss" in parts:
         outbound = {
+            "tag": "proxy",
             "protocol": "shadowsocks",
             "settings": {
                 "servers": [
@@ -31,9 +32,15 @@ def _parse_parts(
                     }
                 ]
             },
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 255
+                }
+            }
         }
     else:
         outbound = {
+            "tag": "proxy",
             "protocol": "vmess",
             "settings": {
                 "vnext": [
@@ -54,6 +61,9 @@ def _parse_parts(
                 "network": parts["net"],
                 "security": parts["tls"] if parts["tls"] else "none",
                 "wsSettings": {"path": parts["path"]},
+                "sockopt": {
+                    "mark": 255
+                }
             },
         }
     return (name.strip(), address.strip(), outbound)
